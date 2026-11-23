@@ -305,7 +305,27 @@ fun ZpoolSettings() {
     var wallet by remember { mutableStateOf(prefs.getString("payout_wallet", "") ?: "") }
     var saved by remember { mutableStateOf(wallet.isNotBlank()) }
     var message by remember { mutableStateOf(if (saved) "Wallet saved on this device" else "Enter your public BTC payout address") }
+    var stratumStatus by remember { mutableStateOf("Not connected") }
+    var difficulty by remember { mutableStateOf("—") }
+    var lastJob by remember { mutableStateOf("—") }
+    var connecting by remember { mutableStateOf(false) }
+    var authorized by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val valid = wallet.matches(Regex("^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,60}$"))
+    val client = remember {
+        ZpoolStratumClient(object : ZpoolStratumClient.Listener {
+            override fun onStatus(message: String) {
+                stratumStatus = message
+                if (message.startsWith("Authorized")) authorized = true
+                if (message.contains("closed") || message.contains("error")) authorized = false
+            }
+            override fun onDifficulty(value: Double) { difficulty = value.toString() }
+            override fun onJob(jobId: String, cleanJobs: Boolean) {
+                lastJob = jobId + if (cleanJobs) " · clean" else ""
+            }
+        })
+    }
+    DisposableEffect(client) { onDispose { client.close() } }
 
     Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -343,7 +363,46 @@ fun ZpoolSettings() {
                 Text("Save payout address")
             }
             Text(message, color = if (saved) Gold else Muted, fontSize = 12.sp)
-            Text("Configuration only: Stratum connection and accepted-share submission are not implemented yet. No mining is running.", color = Muted, fontSize = 12.sp)
+            Divider(color = Color(0xFF303744))
+            Text("STRATUM V1 · TLS HANDSHAKE", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("Connection: $stratumStatus", color = Muted, fontSize = 12.sp)
+            Text("Pool difficulty: $difficulty", color = Muted, fontSize = 12.sp)
+            Text("Latest job: $lastJob", color = Muted, fontSize = 12.sp)
+            Button(
+                onClick = {
+                    if (authorized || connecting) {
+                        client.close()
+                        authorized = false
+                        connecting = false
+                        stratumStatus = "Disconnected by user"
+                    } else {
+                        scope.launch {
+                            connecting = true
+                            authorized = false
+                            stratumStatus = "Connecting securely…"
+                            try {
+                                client.connect(
+                                    host = "sha256.eu.mine.zpool.ca",
+                                    port = 53333,
+                                    wallet = wallet,
+                                    password = "c=BTC",
+                                    tls = true
+                                )
+                            } catch (e: Exception) {
+                                stratumStatus = "Connection failed: ${e.message ?: "unknown error"}"
+                            } finally {
+                                connecting = false
+                            }
+                        }
+                    }
+                },
+                enabled = valid && saved && !connecting || authorized,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = if (authorized) Color(0xFF9B3434) else Gold, contentColor = if (authorized) White else Ink)
+            ) {
+                Text(if (authorized || connecting) "Disconnect" else if (connecting) "Connecting…" else "Test secure pool connection")
+            }
+            Text("Handshake only: the app subscribes and authorizes, then reads difficulty and job notifications. It does not hash jobs or submit shares yet.", color = Muted, fontSize = 12.sp)
         }
     }
 }
