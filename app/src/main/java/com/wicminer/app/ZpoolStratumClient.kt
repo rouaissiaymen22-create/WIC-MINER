@@ -152,6 +152,17 @@ class ZpoolStratumClient(private val listener: Listener) {
                     listener.onStatus("Invalid mining job: ${e.message ?: "parse error"}")
                 }
             }
+            "mining.set_extranonce" -> {
+                val params = message.optJSONArray("params") ?: return
+                val nextExtranonce1 = params.optString(0)
+                val nextSize = params.optInt(1, -1)
+                if (nextExtranonce1.isNotBlank() && nextSize in 1..16) {
+                    listener.onSession(nextExtranonce1, nextSize)
+                    listener.onStatus("Pool rotated extranonce · waiting for fresh job")
+                } else {
+                    listener.onStatus("Pool sent invalid extranonce update")
+                }
+            }
         }
     }
 
