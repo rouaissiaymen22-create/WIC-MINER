@@ -51,7 +51,7 @@ class BitcoinStratumWorkTest {
     @Test
     fun extranonceIncrementsAsBigEndianCounterAndDetectsOverflow() {
         assertArrayEquals(byteArrayOf(0x12, 0x35), BitcoinStratumWork.nextExtranonce2(byteArrayOf(0x12, 0x34)))
-        assertArrayEquals(byteArrayOf(1, 0), BitcoinStratumWork.nextExtranonce2(byteArrayOf(0, 0xff)))
+        assertArrayEquals(byteArrayOf(1, 0), BitcoinStratumWork.nextExtranonce2(byteArrayOf(0, 0xff.toByte())))
         assertNull(BitcoinStratumWork.nextExtranonce2(byteArrayOf(0xff.toByte(), 0xff.toByte())))
     }
 
