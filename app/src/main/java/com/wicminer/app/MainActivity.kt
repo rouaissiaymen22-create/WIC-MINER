@@ -213,7 +213,7 @@ fun WicMinerApp() {
                     }
                     else -> {
                         item { SectionTitle("APP SETTINGS") }
-                        item { SafetyRow("Application", "WIC MINER · v0.2.0", Icons.Default.Info) }
+                        item { SafetyRow("Application", "WIC MINER · v0.3.0", Icons.Default.Info) }
                         item { SafetyRow("Data source", "mempool.space public API", Icons.Default.Public) }
                         item { SafetyRow("Pool account", "Not connected", Icons.Default.Groups) }
                         item { SafetyRow("Wallet", "Read-only integration planned", Icons.Default.AccountBalanceWallet) }
