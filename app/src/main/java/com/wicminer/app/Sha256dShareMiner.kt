@@ -32,7 +32,7 @@ object Sha256dShareMiner {
     ): MiningAttemptResult = withContext(Dispatchers.Default) {
         require(extranonce2Size in 1..16)
         require(difficulty > 0.0 && difficulty.isFinite())
-        require(durationMillis in 1_000L..30_000L)
+        require(durationMillis in 1_000L..600_000L)
 
         val digest = MessageDigest.getInstance("SHA-256")
         var extranonce2 = ByteArray(extranonce2Size)
