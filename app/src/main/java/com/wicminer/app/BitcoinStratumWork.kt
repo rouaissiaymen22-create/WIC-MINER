@@ -68,7 +68,7 @@ object BitcoinStratumWork {
         putBytes(header, 36, merkle.reversedArray())
         putLittleEndianHex(header, 68, job.nTime)
         putLittleEndianHex(header, 72, job.nBits)
-        ByteBuffer.wrap(header, 76, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(0, nonce.toInt())
+        ByteBuffer.wrap(header, 76, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(76, nonce.toInt())
         return header
     }
 
