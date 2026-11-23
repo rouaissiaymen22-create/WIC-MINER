@@ -97,6 +97,10 @@ class ZpoolStratumClient(private val listener: Listener) {
             }
 
             listener.onStatus("Authorized · waiting for mining jobs (no hashing yet)")
+            // Handshake has completed; keep the Stratum reader alive until the
+            // pool closes the socket or the user disconnects. A read timeout here
+            // can disconnect an otherwise healthy but temporarily quiet pool.
+            connection.soTimeout = 0
             readerJob = scope.launch {
                 try {
                     while (connection.isConnected && !connection.isClosed) {
