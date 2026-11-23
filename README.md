@@ -2,7 +2,7 @@
 
 Android SHA-256 mining client prototype built with Kotlin and Jetpack Compose.
 
-## Current version: 0.3.4
+## Current version: 0.3.5
 
 - Black-and-gold interface with Home, Miner, Pools, Safety and Settings tabs.
 - Public Bitcoin reference data from mempool.space: BTC/USD, block height, recommended fee and observed pool blocks.
@@ -35,3 +35,8 @@ The Stratum username is the user's BTC payout address and the password is `c=BTC
 - APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 GitHub Actions runs unit tests before packaging the debug APK. The APK artifact is available from the successful workflow run.
+
+
+## Stratum event log
+
+The Miner screen displays recent pool events, including authorization/status messages, difficulty updates, received jobs, submitted shares, accepted/rejected share responses, and mining/submission errors. Share counters distinguish submitted, accepted, and rejected shares. The event log is an in-memory recent log and is cleared when the app process is restarted.
