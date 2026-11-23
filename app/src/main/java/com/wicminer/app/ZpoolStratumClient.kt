@@ -139,7 +139,7 @@ class ZpoolStratumClient(private val listener: Listener) {
 
     private fun send(output: BufferedWriter, message: JSONObject) {
         output.write(message.toString())
-        output.write("\\n")
+        output.write("\n")
         output.flush()
     }
 
