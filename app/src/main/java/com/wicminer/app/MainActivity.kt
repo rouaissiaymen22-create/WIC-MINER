@@ -138,7 +138,7 @@ fun WicMinerApp() {
             containerColor = Ink,
             bottomBar = {
                 NavigationBar(containerColor = Panel) {
-                    val labels = listOf("Home", "Cloud", "Pools", "Safety", "Settings")
+                    val labels = listOf("Home", "Miner", "Pools", "Safety", "Settings")
                     val icons = listOf(Icons.Default.Dashboard, Icons.Default.Cloud, Icons.Default.Groups, Icons.Default.Shield, Icons.Default.Settings)
                     labels.forEachIndexed { i, label ->
                         NavigationBarItem(
@@ -177,18 +177,7 @@ fun WicMinerApp() {
                         item { Notice("These are public Bitcoin network indicators, not your personal mining hashrate, balance, or earnings.") }
                     }
                     1 -> {
-                        item { SectionTitle("CLOUD MINING") }
-                        item {
-                            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
-                                Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Icon(Icons.Default.Cloud, tint = Gold, modifier = Modifier.size(28.dp), contentDescription = null)
-                                    Text("Cloud mining connections", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                                    Text("No cloud provider is connected. WIC MINER will only display contract or hashrate information after a provider offers a verifiable read-only API.", color = Muted, fontSize = 13.sp)
-                                    Text("No contracts are sold in this app. Never send BTC to an unknown mining service or trust guaranteed-return claims.", color = Gold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-                        }
-                        item { Notice("Cloud mining providers are independent third parties. We will assess transparency, payout proof, fees, and withdrawal terms before adding any integration.") }
+                        item { MinerPanel() }
                     }
                     2 -> {
                         item { SectionTitle("MINING POOL OBSERVER") }
@@ -258,11 +247,11 @@ fun HeroCard() {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("BITCOIN MINING CONTROL", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
             Text("Your mining, your control.", color = White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 31.sp)
-            Text("A read-only companion for Bitcoin network and mining-pool intelligence.", color = Muted, fontSize = 13.sp)
+            Text("Bitcoin SHA-256d engine validation, then verified Signet pool mining.", color = Muted, fontSize = 13.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Shield, contentDescription = null, tint = Gold, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(7.dp))
-                Text("NO PHONE MINING · NO FAKE REWARDS", color = Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("MANUAL MINING TEST · HONEST METRICS", color = Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -305,5 +294,65 @@ fun SafetyRow(title: String, detail: String, icon: androidx.compose.ui.graphics.
                 Text(detail, color = Muted, fontSize = 12.sp)
             }
         }
+    }
+}
+
+
+@Composable
+fun MinerPanel() {
+    var running by remember { mutableStateOf(false) }
+    var hashes by remember { mutableLongStateOf(0L) }
+    var rate by remember { mutableStateOf("—") }
+    var status by remember { mutableStateOf("Ready · local engine test only") }
+    val scope = rememberCoroutineScope()
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        SectionTitle("BITCOIN SHA-256d · STAGE 1")
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Local engine test", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Runs a short SHA-256d benchmark against a test header. This is NOT connected to Bitcoin or a mining pool and cannot earn BTC.", color = Muted, fontSize = 13.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Hashes tested", color = Muted, fontSize = 11.sp)
+                        Text("%,d".format(hashes), color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text("Measured speed", color = Muted, fontSize = 11.sp)
+                        Text(rate, color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text(status, color = Muted, fontSize = 12.sp)
+                Button(
+                    onClick = {
+                        scope.launch {
+                            running = true
+                            status = "Running 5-second local test…"
+                            try {
+                                val result = Sha256dBenchmark.run()
+                                hashes = result.hashes
+                                rate = "%.2f kH/s".format(result.hashesPerSecond / 1000.0)
+                                status = "Completed · test header only · no BTC earned"
+                            } catch (_: Exception) {
+                                status = "Test stopped"
+                            } finally {
+                                running = false
+                            }
+                        }
+                    },
+                    enabled = !running,
+                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (running) CircularProgressIndicator(Modifier.size(17.dp), color = Ink, strokeWidth = 2.dp)
+                    else Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (running) "Testing…" else "Run 5-second test")
+                }
+            }
+        }
+        Notice("Next stage: implement Stratum job parsing, Bitcoin block-header construction, share validation and Signet pool submission. Mainnet mining stays disabled until those checks pass.")
+        SafetyRow("Thermal policy", "Short manual test only · no background service", Icons.Default.Thermostat)
+        SafetyRow("Wallet security", "No seed phrase or private key required", Icons.Default.Lock)
     }
 }
