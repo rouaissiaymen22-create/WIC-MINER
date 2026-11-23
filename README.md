@@ -1,19 +1,20 @@
 # WIC MINER
 
-Independent Android application built with Kotlin and Jetpack Compose.
+Independent Android Bitcoin mining project built with Kotlin and Jetpack Compose.
 
-## Current prototype — v0.2.0
-- Black and gold interface with Home, Cloud, Pools, Safety and Settings tabs.
-- Public Bitcoin reference data from the mempool.space REST API:
-  - BTC/USD reference price
-  - Latest block height
-  - Recommended fastest transaction fee
-  - Mining-pool block observations over the trailing 24 hours
-- Manual refresh and visible update timestamp.
-- No fabricated personal hashrate, wallet balance or BTC rewards.
-- No local Bitcoin proof-of-work and no background mining service.
-- No seed phrase collection.
-- Cloud provider connections and personal pool-account integrations are not connected yet.
+## Current prototype — v0.3.0
+- Black and gold interface with Home, Miner, Pools, Safety and Settings tabs.
+- Public Bitcoin reference data from mempool.space: BTC/USD, block height, recommended fee and observed pool blocks.
+- Manual five-second local SHA-256d throughput test against a synthetic 80-byte header.
+- Displays measured hashes and speed from the device; no fabricated personal hashrate or earnings.
+- **Important:** the current local test is a benchmark only. It is not connected to Bitcoin, does not process a pool job, does not submit shares, and cannot earn BTC.
+- No background mining service and no wallet seed phrase collection.
+
+## Planned next stages
+1. Implement and test Bitcoin Stratum job handling and block-header construction against Signet.
+2. Verify share submission and pool-side acceptance on Signet.
+3. Add explicit user-configured pool and payout address, thermal/battery safeguards, and manual start/stop.
+4. Keep Bitcoin Mainnet disabled until Signet tests pass.
 
 ## Build
 - JDK 17
@@ -22,8 +23,5 @@ Independent Android application built with Kotlin and Jetpack Compose.
 - Run: `gradle --no-daemon assembleDebug`
 - APK: `app/build/outputs/apk/debug/app-debug.apk`
 
-## Data source
-Public Bitcoin network and mining-pool observations are retrieved from the mempool.space REST API. These are network-wide public statistics; they do not represent this user's mining activity or earnings.
-
 ## Safety and limitations
-A phone cannot economically mine Bitcoin. WIC MINER does not run mining workloads. Cloud-mining providers are third parties; no contracts are sold or endorsed in this app. Any future provider integration must use verifiable read-only data and clearly disclose fees, payout evidence, and withdrawal conditions. Never enter a wallet seed phrase or send funds to an unknown service.
+Bitcoin SHA-256 mining is economically dominated by specialized ASIC hardware. CPU/mobile-phone mining is not a realistic way to earn BTC. The app must show only measured device performance and pool-confirmed share data. Never enter a wallet seed phrase or private key into this app.
