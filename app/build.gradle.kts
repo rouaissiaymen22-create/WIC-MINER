@@ -12,8 +12,8 @@ android {
         applicationId = "com.wicminer.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.3.1"
+        versionCode = 3
+        versionName = "0.3.2"
     }
 
     compileOptions {
@@ -38,5 +38,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
