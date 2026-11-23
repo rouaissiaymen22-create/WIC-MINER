@@ -309,6 +309,15 @@ fun ZpoolSettings() {
     var difficulty by remember { mutableStateOf("—") }
     var lastJob by remember { mutableStateOf("—") }
     var extranonceInfo by remember { mutableStateOf("—") }
+    var extranonce1 by remember { mutableStateOf("") }
+    var extranonce2Size by remember { mutableIntStateOf(0) }
+    var currentJob by remember { mutableStateOf<StratumJob?>(null) }
+    var currentDifficulty by remember { mutableDoubleStateOf(0.0) }
+    var mining by remember { mutableStateOf(false) }
+    var miningJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var hashesDone by remember { mutableLongStateOf(0L) }
+    var shareCount by remember { mutableIntStateOf(0) }
+    var acceptedShares by remember { mutableIntStateOf(0) }
     var connecting by remember { mutableStateOf(false) }
     var authorized by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -320,15 +329,23 @@ fun ZpoolSettings() {
                 if (message.startsWith("Authorized")) authorized = true
                 if (message.contains("closed") || message.contains("error")) authorized = false
             }
-            override fun onDifficulty(value: Double) { difficulty = value.toString() }
-            override fun onSession(extranonce1: String, extranonce2Size: Int) {
-                extranonceInfo = "$extranonce1 · $extranonce2Size bytes"
+            override fun onDifficulty(value: Double) {
+                currentDifficulty = value
+                difficulty = value.toString()
+            }
+            override fun onSession(extranonce1Value: String, extranonce2SizeValue: Int) {
+                extranonce1 = extranonce1Value
+                extranonce2Size = extranonce2SizeValue
+                extranonceInfo = "$extranonce1Value · $extranonce2SizeValue bytes"
             }
             override fun onJob(job: StratumJob) {
+                currentJob = job
                 lastJob = job.jobId + if (job.cleanJobs) " · clean" else ""
             }
             override fun onShareResult(accepted: Boolean, detail: String) {
                 stratumStatus = detail
+                shareCount++
+                if (accepted) acceptedShares++
             }
         })
     }
@@ -376,6 +393,8 @@ fun ZpoolSettings() {
             Text("Pool difficulty: $difficulty", color = Muted, fontSize = 12.sp)
             Text("Latest job: $lastJob", color = Muted, fontSize = 12.sp)
             Text("Extranonce: $extranonceInfo", color = Muted, fontSize = 12.sp)
+            Text("Shares accepted: $acceptedShares / submitted: $shareCount", color = Muted, fontSize = 12.sp)
+            Text("Hashes in last run: %,d".format(hashesDone), color = Muted, fontSize = 12.sp)
             Button(
                 onClick = {
                     if (authorized || connecting) {
@@ -410,7 +429,61 @@ fun ZpoolSettings() {
             ) {
                 Text(if (authorized || connecting) "Disconnect" else if (connecting) "Connecting…" else "Test secure pool connection")
             }
-            Text("Handshake only: the app subscribes and authorizes, then reads difficulty and job notifications. It does not hash jobs or submit shares yet.", color = Muted, fontSize = 12.sp)
+            Button(
+                onClick = {
+                    if (mining) {
+                        miningJob?.cancel()
+                        mining = false
+                        stratumStatus = "Mining attempt stopped by user"
+                    } else {
+                        val job = currentJob
+                        if (!authorized || job == null || extranonce1.isBlank() || currentDifficulty <= 0.0) {
+                            stratumStatus = "Connect first and wait for a valid job and difficulty"
+                        } else {
+                            miningJob = scope.launch {
+                                mining = true
+                                stratumStatus = "Mining one 15-second foreground attempt…"
+                                try {
+                                    val result = Sha256dShareMiner.run(
+                                        job = job,
+                                        extranonce1 = extranonce1,
+                                        extranonce2Size = extranonce2Size,
+                                        difficulty = currentDifficulty,
+                                        durationMillis = 15_000L
+                                    )
+                                    hashesDone = result.hashes
+                                    stratumStatus = "Attempt complete · %.2f kH/s".format(result.hashesPerSecond / 1000.0)
+                                    if (result.foundShare) {
+                                        client.submitShare(
+                                            wallet = wallet,
+                                            jobId = job.jobId,
+                                            extranonce2Hex = result.extranonce2Hex!!,
+                                            nTime = job.nTime,
+                                            nonceHex = result.nonceHex!!
+                                        )
+                                        stratumStatus = "Share submitted · waiting for pool response"
+                                    } else {
+                                        stratumStatus = "No share found in 15 seconds · %.2f kH/s".format(result.hashesPerSecond / 1000.0)
+                                    }
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    stratumStatus = "Mining attempt cancelled"
+                                    throw e
+                                } catch (e: Exception) {
+                                    stratumStatus = "Mining error: ${e.message ?: "unknown"}"
+                                } finally {
+                                    mining = false
+                                }
+                            }
+                        }
+                    }
+                },
+                enabled = (authorized && currentJob != null && currentDifficulty > 0.0) || mining,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = if (mining) Color(0xFF9B3434) else Gold, contentColor = if (mining) White else Ink)
+            ) {
+                Text(if (mining) "Stop 15-second attempt" else "Start 15-second SHA-256d attempt")
+            }
+            Text("Manual foreground test only · one CPU worker · maximum 15 seconds per attempt. Shares are submitted only if they meet the current pool difficulty. No background mining service is enabled.", color = Muted, fontSize = 12.sp)
         }
     }
 }
