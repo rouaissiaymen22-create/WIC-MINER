@@ -26,7 +26,7 @@ object Sha256dBenchmark {
         val deadline = started + durationMillis * 1_000_000L
         var count = 0L
         while (System.nanoTime() < deadline) {
-            nonce.putInt(count.toInt())
+            nonce.putInt(76, count.toInt())
             val first = digest.digest(header)
             digest.digest(first)
             count++
