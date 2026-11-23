@@ -299,7 +299,6 @@ fun SafetyRow(title: String, detail: String, icon: androidx.compose.ui.graphics.
 
 
 @Composable
-@Composable
 fun ZpoolSettings() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("wic_miner_settings", android.content.Context.MODE_PRIVATE) }
@@ -349,6 +348,7 @@ fun ZpoolSettings() {
     }
 }
 
+@Composable
 fun MinerPanel() {
     var running by remember { mutableStateOf(false) }
     var hashes by remember { mutableLongStateOf(0L) }
