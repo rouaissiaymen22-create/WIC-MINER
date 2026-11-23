@@ -200,7 +200,7 @@ fun WicMinerApp() {
                                 }
                             }
                         }
-                        item { RefreshRow(loading, data.updated, loadError) { refresh() } }
+                        item { RefreshRow(loading, data.updated, loadError) { scope.launch { refresh() } } }
                         item { Notice("Pool rankings describe public network observations. They do not mean you are connected to a pool or earning BTC.") }
                     }
                     3 -> {
