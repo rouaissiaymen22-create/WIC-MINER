@@ -330,10 +330,23 @@ fun ZpoolSettings() {
                 if (message.contains("closed") || message.contains("error")) authorized = false
             }
             override fun onDifficulty(value: Double) {
+                if (currentDifficulty > 0.0 && value != currentDifficulty && mining) {
+                    miningJob?.cancel()
+                    mining = false
+                    stratumStatus = "Pool difficulty changed · restart the mining attempt"
+                }
                 currentDifficulty = value
                 difficulty = value.toString()
             }
             override fun onSession(extranonce1Value: String, extranonce2SizeValue: Int) {
+                val rotated = extranonce1.isNotBlank() &&
+                    (extranonce1 != extranonce1Value || extranonce2Size != extranonce2SizeValue)
+                if (rotated) {
+                    miningJob?.cancel()
+                    mining = false
+                    currentJob = null
+                    lastJob = "Waiting for fresh job after extranonce rotation"
+                }
                 extranonce1 = extranonce1Value
                 extranonce2Size = extranonce2SizeValue
                 extranonceInfo = "$extranonce1Value · $extranonce2SizeValue bytes"
