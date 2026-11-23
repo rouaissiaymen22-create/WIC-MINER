@@ -345,13 +345,17 @@ fun ZpoolSettings() {
                 }
             }
             override fun onDifficulty(value: Double) {
-                if (currentDifficulty > 0.0 && value != currentDifficulty && mining) {
-                    miningJob?.cancel()
-                    mining = false
-                    stratumStatus = "Pool difficulty changed · restart the mining attempt"
+                scope.launch(Dispatchers.Main) {
+                    if (currentDifficulty > 0.0 && value != currentDifficulty && mining) {
+                        stopReason = "Pool difficulty changed · mining stopped"
+                        miningJob?.cancel()
+                        mining = false
+                        addEvent("SAFETY · difficulty changed; previous work cancelled")
+                    }
+                    currentDifficulty = value
+                    difficulty = value.toString()
+                    addEvent("POOL · difficulty $value")
                 }
-                currentDifficulty = value
-                difficulty = value.toString()
             }
             override fun onSession(extranonce1Value: String, extranonce2SizeValue: Int) {
                 val rotated = extranonce1.isNotBlank() &&
@@ -367,12 +371,16 @@ fun ZpoolSettings() {
                 extranonceInfo = "$extranonce1Value · $extranonce2SizeValue bytes"
             }
             override fun onJob(job: StratumJob) {
-                if (job.cleanJobs) {
-                    miningJob?.cancel()
-                    mining = false
+                scope.launch(Dispatchers.Main) {
+                    if (job.cleanJobs) {
+                        stopReason = "New clean job · previous work cancelled"
+                        miningJob?.cancel()
+                        mining = false
+                    }
+                    currentJob = job
+                    lastJob = job.jobId + if (job.cleanJobs) " · clean" else ""
+                    addEvent("JOB · ${job.jobId}${if (job.cleanJobs) " · clean" else ""}")
                 }
-                currentJob = job
-                lastJob = job.jobId + if (job.cleanJobs) " · clean" else ""
             }
             override fun onShareResult(accepted: Boolean, detail: String) {
                 scope.launch(Dispatchers.Main) {
