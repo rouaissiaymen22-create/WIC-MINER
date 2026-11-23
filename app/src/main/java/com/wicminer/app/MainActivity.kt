@@ -215,7 +215,7 @@ fun WicMinerApp() {
                     else -> {
                         item { SectionTitle("APP SETTINGS · SECURITY") }
                         item { Notice("Pool: Zpool SHA-256 over TLS. The configured c=BTC option selects BTC payout; it does not guarantee direct Bitcoin-block mining because Zpool may route SHA-256 work across compatible markets.") }
-                        item { SafetyRow("Application", "WIC MINER · v0.3.2", Icons.Default.Info) }
+                        item { SafetyRow("Application", "WIC MINER · v0.3.3", Icons.Default.Info) }
                         item { SafetyRow("Mining mode", "Manual foreground attempts only · no background service", Icons.Default.Memory) }
                         item { SafetyRow("Network", "TLS certificate and hostname verification enabled", Icons.Default.Lock) }
                         item { SafetyRow("Data source", "mempool.space public API", Icons.Default.Public) }
@@ -317,6 +317,9 @@ fun ZpoolSettings() {
     var currentDifficulty by remember { mutableDoubleStateOf(0.0) }
     var mining by remember { mutableStateOf(false) }
     var miningJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var thermalMonitorJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var sessionDurationMillis by remember { mutableLongStateOf(60_000L) }
+    var stopReason by remember { mutableStateOf("") }
     var hashesDone by remember { mutableLongStateOf(0L) }
     var shareCount by remember { mutableIntStateOf(0) }
     var acceptedShares by remember { mutableIntStateOf(0) }
@@ -448,30 +451,47 @@ fun ZpoolSettings() {
             ) {
                 Text(if (connecting) "Connecting…" else if (authorized) "Disconnect" else "Test secure pool connection")
             }
+            Text("SESSION DURATION", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(60_000L to "1 min", 300_000L to "5 min", 600_000L to "10 min").forEach { (duration, label) ->
+                    OutlinedButton(
+                        onClick = { sessionDurationMillis = duration },
+                        enabled = !mining,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (sessionDurationMillis == duration) Ink else Gold,
+                            containerColor = if (sessionDurationMillis == duration) Gold else Color.Transparent
+                        )
+                    ) { Text(label, fontSize = 12.sp) }
+                }
+            }
             Button(
                 onClick = {
                     if (mining) {
+                        stopReason = "Mining session stopped by user"
                         miningJob?.cancel()
+                        thermalMonitorJob?.cancel()
                         mining = false
-                        stratumStatus = "Mining attempt stopped by user"
+                        stratumStatus = stopReason
                     } else {
                         val job = currentJob
                         if (!authorized || job == null || extranonce1.isBlank() || currentDifficulty <= 0.0) {
                             stratumStatus = "Connect first and wait for a valid job and difficulty"
                         } else {
+                            stopReason = ""
                             miningJob = scope.launch {
                                 mining = true
-                                stratumStatus = "Mining one 15-second foreground attempt…"
+                                stratumStatus = "Mining session started · foreground only"
                                 try {
                                     val result = Sha256dShareMiner.run(
                                         job = job,
                                         extranonce1 = extranonce1,
                                         extranonce2Size = extranonce2Size,
                                         difficulty = currentDifficulty,
-                                        durationMillis = 15_000L
+                                        durationMillis = sessionDurationMillis
                                     )
                                     hashesDone = result.hashes
-                                    stratumStatus = "Attempt complete · %.2f kH/s".format(result.hashesPerSecond / 1000.0)
+                                    stratumStatus = "Session complete · %.2f kH/s".format(result.hashesPerSecond / 1000.0)
                                     if (result.foundShare) {
                                         client.submitShare(
                                             wallet = wallet,
@@ -482,15 +502,39 @@ fun ZpoolSettings() {
                                         )
                                         stratumStatus = "Share submitted · waiting for pool response"
                                     } else {
-                                        stratumStatus = "No share found in 15 seconds · %.2f kH/s".format(result.hashesPerSecond / 1000.0)
+                                        stratumStatus = "No share found in selected session · %.2f kH/s".format(result.hashesPerSecond / 1000.0)
                                     }
                                 } catch (e: kotlinx.coroutines.CancellationException) {
-                                    stratumStatus = "Mining attempt cancelled"
+                                    stratumStatus = stopReason.ifBlank { "Mining session cancelled" }
                                     throw e
                                 } catch (e: Exception) {
                                     stratumStatus = "Mining error: ${e.message ?: "unknown"}"
                                 } finally {
                                     mining = false
+                                    thermalMonitorJob?.cancel()
+                                }
+                            }
+                            thermalMonitorJob = scope.launch {
+                                while (mining) {
+                                    kotlinx.coroutines.delay(10_000L)
+                                    val battery = context.registerReceiver(
+                                        null,
+                                        android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
+                                    )
+                                    val tempTenths = battery?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
+                                    val level = battery?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                                    val scale = battery?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+                                    val batteryPercent = if (level >= 0 && scale > 0) level * 100 / scale else -1
+                                    if (tempTenths >= 430) {
+                                        stopReason = "Safety stop · battery temperature reached 43°C"
+                                        miningJob?.cancel()
+                                        break
+                                    }
+                                    if (batteryPercent in 0..15) {
+                                        stopReason = "Safety stop · battery level is 15% or lower"
+                                        miningJob?.cancel()
+                                        break
+                                    }
                                 }
                             }
                         }
@@ -500,9 +544,9 @@ fun ZpoolSettings() {
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = if (mining) Color(0xFF9B3434) else Gold, contentColor = if (mining) White else Ink)
             ) {
-                Text(if (mining) "Stop 15-second attempt" else "Start 15-second SHA-256d attempt")
+                Text(if (mining) "Stop mining session" else "Start ${sessionDurationMillis / 60_000L}-minute mining session")
             }
-            Text("Manual foreground test only · one CPU worker · maximum 15 seconds per attempt. Shares are submitted only if they meet the current pool difficulty. No background mining service is enabled.", color = Muted, fontSize = 12.sp)
+            Text("Foreground-only SHA-256d session · one CPU worker · choose 1, 5 or 10 minutes. Automatic safety stop at battery temperature ≥43°C or battery ≤15%. Stop manually at any time. Shares are submitted only if they meet the current pool difficulty. No background mining service is enabled.", color = Muted, fontSize = 12.sp)
         }
     }
 }
