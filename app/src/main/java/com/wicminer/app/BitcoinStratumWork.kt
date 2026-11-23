@@ -72,10 +72,15 @@ object BitcoinStratumWork {
         return header
     }
 
-    fun hashMeetsDifficulty(header: ByteArray, difficulty: Double): Boolean {
-        require(header.size == 80 && difficulty > 0.0 && difficulty.isFinite())
-        val digest = doubleSha256(header).reversedArray()
-        val value = BigInteger(1, digest)
+    fun buildHeaderTemplate(job: StratumJob, extranonce1: String, extranonce2: ByteArray): ByteArray =
+        buildHeader(job, extranonce1, extranonce2, 0L)
+
+    fun hashMeetsDifficulty(header: ByteArray, difficulty: Double): Boolean =
+        hashMeetsDifficultyHash(doubleSha256(header), difficulty)
+
+    fun hashMeetsDifficultyHash(hash: ByteArray, difficulty: Double): Boolean {
+        require(hash.size == 32 && difficulty > 0.0 && difficulty.isFinite())
+        val value = BigInteger(1, hash.reversedArray())
         val target = diff1Target.toBigDecimal()
             .divide(java.math.BigDecimal.valueOf(difficulty), 0, java.math.RoundingMode.DOWN)
             .toBigInteger()
