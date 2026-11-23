@@ -323,6 +323,13 @@ fun ZpoolSettings() {
     var hashesDone by remember { mutableLongStateOf(0L) }
     var shareCount by remember { mutableIntStateOf(0) }
     var acceptedShares by remember { mutableIntStateOf(0) }
+    var rejectedShares by remember { mutableIntStateOf(0) }
+    val eventLogs = remember { mutableStateListOf<String>() }
+    fun addEvent(message: String) {
+        val stamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+        eventLogs.add(0, "$stamp  $message")
+        while (eventLogs.size > 40) eventLogs.removeAt(eventLogs.lastIndex)
+    }
     var connecting by remember { mutableStateOf(false) }
     var authorized by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -330,9 +337,12 @@ fun ZpoolSettings() {
     val client = remember {
         ZpoolStratumClient(object : ZpoolStratumClient.Listener {
             override fun onStatus(message: String) {
-                stratumStatus = message
-                if (message.startsWith("Authorized")) authorized = true
-                if (message.contains("closed") || message.contains("error")) authorized = false
+                scope.launch(Dispatchers.Main) {
+                    stratumStatus = message
+                    addEvent("POOL · $message")
+                    if (message.startsWith("Authorized")) authorized = true
+                    if (message.contains("closed") || message.contains("error")) authorized = false
+                }
             }
             override fun onDifficulty(value: Double) {
                 if (currentDifficulty > 0.0 && value != currentDifficulty && mining) {
@@ -365,9 +375,11 @@ fun ZpoolSettings() {
                 lastJob = job.jobId + if (job.cleanJobs) " · clean" else ""
             }
             override fun onShareResult(accepted: Boolean, detail: String) {
-                stratumStatus = detail
-                shareCount++
-                if (accepted) acceptedShares++
+                scope.launch(Dispatchers.Main) {
+                    stratumStatus = detail
+                    if (accepted) acceptedShares++ else rejectedShares++
+                    addEvent("${if (accepted) "SHARE ACCEPTED" else "SHARE REJECTED"} · $detail")
+                }
             }
         })
     }
@@ -415,8 +427,20 @@ fun ZpoolSettings() {
             Text("Pool difficulty: $difficulty", color = Muted, fontSize = 12.sp)
             Text("Latest job: $lastJob", color = Muted, fontSize = 12.sp)
             Text("Extranonce: $extranonceInfo", color = Muted, fontSize = 12.sp)
-            Text("Shares accepted: $acceptedShares / submitted: $shareCount", color = Muted, fontSize = 12.sp)
+            Text("Shares · accepted: $acceptedShares / rejected: $rejectedShares / submitted: $shareCount", color = Muted, fontSize = 12.sp)
             Text("Hashes in last run: %,d".format(hashesDone), color = Muted, fontSize = 12.sp)
+            Text("EVENT LOG · LATEST 12", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Card(colors = CardDefaults.cardColors(containerColor = Ink), shape = RoundedCornerShape(12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (eventLogs.isEmpty()) {
+                        Text("No events yet · connect to Zpool to begin logging", color = Muted, fontSize = 11.sp)
+                    } else {
+                        eventLogs.take(12).forEach { entry ->
+                            Text(entry, color = if (entry.contains("ACCEPTED")) Color(0xFF42C98A) else if (entry.contains("REJECTED") || entry.contains("ERROR")) Color(0xFFFF7777) else Muted, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
             Button(
                 onClick = {
                     if (authorized || connecting) {
@@ -492,6 +516,8 @@ fun ZpoolSettings() {
                                             nTime = job.nTime,
                                             nonceHex = result.nonceHex!!
                                         )
+                                        shareCount++
+                                        addEvent("SHARE SUBMITTED · job ${job.jobId} · waiting for pool response")
                                         stratumStatus = "Share submitted · waiting for pool response"
                                     } else {
                                         stratumStatus = "No share found in selected session · %.2f kH/s".format(result.hashesPerSecond / 1000.0)
@@ -538,7 +564,7 @@ fun ZpoolSettings() {
             ) {
                 Text(if (mining) "Stop mining session" else "Start ${sessionDurationMillis / 60_000L}-minute mining session")
             }
-            Text("Foreground-only SHA-256d session · one CPU worker · fixed 10-minute session. Automatic safety stop at battery temperature ≥43°C or battery ≤15%. Stop manually at any time. Shares are submitted only if they meet the current pool difficulty. No background mining service is enabled.", color = Muted, fontSize = 12.sp)
+            Text("Foreground-only SHA-256d session · one CPU worker · fixed 10-minute session. Automatic safety stop at battery temperature ≥30°C (when reported by Android) or battery ≤15%. Stop manually at any time. Shares are submitted only if they meet the current pool difficulty. No background mining service is enabled.", color = Muted, fontSize = 12.sp)
         }
     }
 }
