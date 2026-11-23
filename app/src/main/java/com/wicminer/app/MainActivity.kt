@@ -420,10 +420,14 @@ fun ZpoolSettings() {
             Button(
                 onClick = {
                     if (authorized || connecting) {
+                        stopReason = "Pool disconnected · mining stopped"
+                        miningJob?.cancel()
+                        thermalMonitorJob?.cancel()
+                        mining = false
                         client.close()
                         authorized = false
                         connecting = false
-                        stratumStatus = "Disconnected by user"
+                        stratumStatus = stopReason
                     } else {
                         scope.launch {
                             connecting = true
@@ -516,7 +520,6 @@ fun ZpoolSettings() {
                             }
                             thermalMonitorJob = scope.launch {
                                 while (mining) {
-                                    kotlinx.coroutines.delay(10_000L)
                                     val battery = context.registerReceiver(
                                         null,
                                         android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
@@ -535,6 +538,7 @@ fun ZpoolSettings() {
                                         miningJob?.cancel()
                                         break
                                     }
+                                    kotlinx.coroutines.delay(10_000L)
                                 }
                             }
                         }
