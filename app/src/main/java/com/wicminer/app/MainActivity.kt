@@ -339,6 +339,10 @@ fun ZpoolSettings() {
                 extranonceInfo = "$extranonce1Value · $extranonce2SizeValue bytes"
             }
             override fun onJob(job: StratumJob) {
+                if (job.cleanJobs) {
+                    miningJob?.cancel()
+                    mining = false
+                }
                 currentJob = job
                 lastJob = job.jobId + if (job.cleanJobs) " · clean" else ""
             }
