@@ -2,14 +2,14 @@
 
 Android SHA-256 mining client prototype built with Kotlin and Jetpack Compose.
 
-## Current version: 0.3.3
+## Current version: 0.3.4
 
 - Black-and-gold interface with Home, Miner, Pools, Safety and Settings tabs.
 - Public Bitcoin reference data from mempool.space: BTC/USD, block height, recommended fee and observed pool blocks.
 - Zpool SHA-256 Stratum V1 connection over TLS at `sha256.eu.mine.zpool.ca:53333`.
 - TLS hostname verification, Stratum subscribe/authorize, difficulty and job notifications, extranonce updates, and share-result tracking.
 - User-supplied public BTC payout address is stored locally in Android SharedPreferences. No seed phrase or private key is requested.
-- User-started foreground-only SHA-256d sessions selectable for 1, 5 or 10 minutes; a share is submitted only if it meets the reported pool difficulty. Sessions can be stopped manually and automatically stop when Android reports battery temperature ≥43°C or battery level ≤15%.
+- User-started foreground-only SHA-256d sessions selectable for 10-minute sessions; a share is submitted only if it meets the reported pool difficulty. Sessions can be stopped manually and automatically stop when Android reports battery temperature ≥30°C or battery level ≤15%.
 - The UI reports pool-confirmed accepted/rejected shares separately from attempted hashes. A successful APK build does not prove that a pool connection or accepted share occurred.
 
 ## Zpool payout behavior
