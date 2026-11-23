@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -212,12 +213,11 @@ fun WicMinerApp() {
                         item { SafetyRow("Emergency stop", "No active mining process", Icons.Default.StopCircle) }
                     }
                     else -> {
-                        item { SectionTitle("APP SETTINGS") }
-                        item { SafetyRow("Application", "WIC MINER · v0.3.0", Icons.Default.Info) }
+                        item { SectionTitle("ZPOOL · BITCOIN MAINNET") }
+                        item { ZpoolSettings() }
+                        item { SafetyRow("Application", "WIC MINER · v0.3.1", Icons.Default.Info) }
                         item { SafetyRow("Data source", "mempool.space public API", Icons.Default.Public) }
-                        item { SafetyRow("Pool account", "Not connected", Icons.Default.Groups) }
-                        item { SafetyRow("Wallet", "Read-only integration planned", Icons.Default.AccountBalanceWallet) }
-                        item { SafetyRow("Security", "Never enter seed phrases into this app", Icons.Default.Lock) }
+                        item { SafetyRow("Security", "Public payout address only · never enter seed phrases or private keys", Icons.Default.Lock) }
                     }
                 }
                 item { Spacer(Modifier.height(12.dp)) }
@@ -299,6 +299,56 @@ fun SafetyRow(title: String, detail: String, icon: androidx.compose.ui.graphics.
 
 
 @Composable
+@Composable
+fun ZpoolSettings() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("wic_miner_settings", android.content.Context.MODE_PRIVATE) }
+    var wallet by remember { mutableStateOf(prefs.getString("payout_wallet", "") ?: "") }
+    var saved by remember { mutableStateOf(wallet.isNotBlank()) }
+    var message by remember { mutableStateOf(if (saved) "Wallet saved on this device" else "Enter your public BTC payout address") }
+    val valid = wallet.matches(Regex("^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,60}$"))
+
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Zpool SHA-256", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("Bitcoin Mainnet payout configuration", color = Muted, fontSize = 12.sp)
+            Text("Server", color = Muted, fontSize = 11.sp)
+            Text("sha256.eu.mine.zpool.ca:3333", color = White, fontWeight = FontWeight.SemiBold)
+            Text("TLS endpoint: sha256.eu.mine.zpool.ca:53333", color = Muted, fontSize = 11.sp)
+            OutlinedTextField(
+                value = wallet,
+                onValueChange = { wallet = it.trim(); saved = false; message = "Unsaved changes" },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("BTC payout address") },
+                singleLine = true,
+                isError = wallet.isNotBlank() && !valid,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Gold,
+                    focusedLabelColor = Gold,
+                    cursorColor = Gold
+                )
+            )
+            Text("Password / payout option: c=BTC", color = Muted, fontSize = 12.sp)
+            Button(
+                onClick = {
+                    prefs.edit().putString("payout_wallet", wallet).apply()
+                    saved = true
+                    message = "Wallet saved locally on this device"
+                },
+                enabled = valid,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)
+            ) {
+                Icon(Icons.Default.Save, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Save payout address")
+            }
+            Text(message, color = if (saved) Gold else Muted, fontSize = 12.sp)
+            Text("Configuration only: Stratum connection and accepted-share submission are not implemented yet. No mining is running.", color = Muted, fontSize = 12.sp)
+        }
+    }
+}
+
 fun MinerPanel() {
     var running by remember { mutableStateOf(false) }
     var hashes by remember { mutableLongStateOf(0L) }
