@@ -178,7 +178,7 @@ fun WicMinerApp() {
                         item { Notice("These are public Bitcoin network indicators, not your personal mining hashrate, balance, or earnings.") }
                     }
                     1 -> {
-                        item { MinerPanel() }
+                        item { ZpoolSettings() }
                     }
                     2 -> {
                         item { SectionTitle("MINING POOL OBSERVER") }
@@ -213,9 +213,11 @@ fun WicMinerApp() {
                         item { SafetyRow("Emergency stop", "No active mining process", Icons.Default.StopCircle) }
                     }
                     else -> {
-                        item { SectionTitle("ZPOOL · BITCOIN MAINNET") }
-                        item { ZpoolSettings() }
-                        item { SafetyRow("Application", "WIC MINER · v0.3.1", Icons.Default.Info) }
+                        item { SectionTitle("APP SETTINGS · SECURITY") }
+                        item { Notice("Pool: Zpool SHA-256 over TLS. The configured c=BTC option selects BTC payout; it does not guarantee direct Bitcoin-block mining because Zpool may route SHA-256 work across compatible markets.") }
+                        item { SafetyRow("Application", "WIC MINER · v0.3.2", Icons.Default.Info) }
+                        item { SafetyRow("Mining mode", "Manual foreground attempts only · no background service", Icons.Default.Memory) }
+                        item { SafetyRow("Network", "TLS certificate and hostname verification enabled", Icons.Default.Lock) }
                         item { SafetyRow("Data source", "mempool.space public API", Icons.Default.Public) }
                         item { SafetyRow("Security", "Public payout address only · never enter seed phrases or private keys", Icons.Default.Lock) }
                     }
@@ -247,11 +249,11 @@ fun HeroCard() {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("BITCOIN MINING CONTROL", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
             Text("Your mining, your control.", color = White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 31.sp)
-            Text("Bitcoin SHA-256d engine validation, then verified Signet pool mining.", color = Muted, fontSize = 13.sp)
+            Text("Connect securely to the configured SHA-256 pool, receive jobs, and run short user-started share searches.", color = Muted, fontSize = 13.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Shield, contentDescription = null, tint = Gold, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(7.dp))
-                Text("MANUAL MINING TEST · HONEST METRICS", color = Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("POOL CONNECTION · MANUAL FOREGROUND MINING", color = Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -371,7 +373,7 @@ fun ZpoolSettings() {
     Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Zpool SHA-256", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("Bitcoin Mainnet payout configuration", color = Muted, fontSize = 12.sp)
+            Text("Zpool SHA-256 · BTC payout option (c=BTC)", color = Muted, fontSize = 12.sp)
             Text("Server", color = Muted, fontSize = 11.sp)
             Text("sha256.eu.mine.zpool.ca:3333", color = White, fontWeight = FontWeight.SemiBold)
             Text("TLS endpoint: sha256.eu.mine.zpool.ca:53333", color = Muted, fontSize = 11.sp)
@@ -440,11 +442,11 @@ fun ZpoolSettings() {
                         }
                     }
                 },
-                enabled = valid && saved && !connecting || authorized,
+                enabled = (valid && saved && !connecting) || authorized,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = if (authorized) Color(0xFF9B3434) else Gold, contentColor = if (authorized) White else Ink)
             ) {
-                Text(if (authorized || connecting) "Disconnect" else if (connecting) "Connecting…" else "Test secure pool connection")
+                Text(if (connecting) "Connecting…" else if (authorized) "Disconnect" else "Test secure pool connection")
             }
             Button(
                 onClick = {
@@ -507,59 +509,9 @@ fun ZpoolSettings() {
 
 @Composable
 fun MinerPanel() {
-    var running by remember { mutableStateOf(false) }
-    var hashes by remember { mutableLongStateOf(0L) }
-    var rate by remember { mutableStateOf("—") }
-    var status by remember { mutableStateOf("Ready · local engine test only") }
-    val scope = rememberCoroutineScope()
-
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SectionTitle("BITCOIN SHA-256d · STAGE 1")
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Local engine test", color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("Runs a short SHA-256d benchmark against a test header. This is NOT connected to Bitcoin or a mining pool and cannot earn BTC.", color = Muted, fontSize = 13.sp)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Hashes tested", color = Muted, fontSize = 11.sp)
-                        Text("%,d".format(hashes), color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text("Measured speed", color = Muted, fontSize = 11.sp)
-                        Text(rate, color = Gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Text(status, color = Muted, fontSize = 12.sp)
-                Button(
-                    onClick = {
-                        scope.launch {
-                            running = true
-                            status = "Running 5-second local test…"
-                            try {
-                                val result = Sha256dBenchmark.run()
-                                hashes = result.hashes
-                                rate = "%.2f kH/s".format(result.hashesPerSecond / 1000.0)
-                                status = "Completed · test header only · no BTC earned"
-                            } catch (_: Exception) {
-                                status = "Test stopped"
-                            } finally {
-                                running = false
-                            }
-                        }
-                    },
-                    enabled = !running,
-                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (running) CircularProgressIndicator(Modifier.size(17.dp), color = Ink, strokeWidth = 2.dp)
-                    else Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (running) "Testing…" else "Run 5-second test")
-                }
-            }
-        }
-        Notice("Next stage: implement Stratum job parsing, Bitcoin block-header construction, share validation and Signet pool submission. Mainnet mining stays disabled until those checks pass.")
-        SafetyRow("Thermal policy", "Short manual test only · no background service", Icons.Default.Thermostat)
-        SafetyRow("Wallet security", "No seed phrase or private key required", Icons.Default.Lock)
+        SectionTitle("ZPOOL SHA-256 · MAINNET POOL CONNECTION")
+        ZpoolSettings()
+        Notice("BTC payout is selected with c=BTC. Zpool is a multipool: it may direct SHA-256 work to compatible coins and pay the proceeds in BTC. Phone CPU mining is not economically competitive with ASIC hardware.")
     }
 }
