@@ -206,11 +206,11 @@ fun WicMinerApp() {
                     }
                     3 -> {
                         item { SectionTitle("DEVICE PROTECTION") }
-                        item { SafetyRow("Local mining", "Not installed or enabled", Icons.Default.Memory) }
-                        item { SafetyRow("Thermal protection", "No mining workload is active", Icons.Default.Thermostat) }
-                        item { SafetyRow("Battery protection", "No background compute service", Icons.Default.BatteryFull) }
+                        item { SafetyRow("Local mining", "Manual foreground SHA-256d sessions · up to 10 minutes", Icons.Default.Memory) }
+                        item { SafetyRow("Thermal protection", "Stops at battery temperature ≥43°C (when reported by Android)", Icons.Default.Thermostat) }
+                        item { SafetyRow("Battery protection", "Stops at battery level ≤15%", Icons.Default.BatteryFull) }
                         item { SafetyRow("Background activity", "Disabled in this version", Icons.Default.Bedtime) }
-                        item { SafetyRow("Emergency stop", "No active mining process", Icons.Default.StopCircle) }
+                        item { SafetyRow("Emergency stop", "Stop mining button is available during every session", Icons.Default.StopCircle) }
                     }
                     else -> {
                         item { SectionTitle("APP SETTINGS · SECURITY") }
