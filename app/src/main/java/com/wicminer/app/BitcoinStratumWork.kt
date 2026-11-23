@@ -64,8 +64,8 @@ object BitcoinStratumWork {
         putLittleEndianHex(header, 0, job.version)
         // Stratum encodes previous-hash words in the opposite byte order from the header.
         putBytes(header, 4, swapWords(hex(job.previousHash)))
-        // The merkle root is serialized in the byte order used by the Bitcoin header.
-        putBytes(header, 36, merkle.reversedArray())
+        // SHA256d returns the internal hash byte order used by the serialized header.
+        putBytes(header, 36, merkle)
         putLittleEndianHex(header, 68, job.nTime)
         putLittleEndianHex(header, 72, job.nBits)
         ByteBuffer.wrap(header, 76, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(76, nonce.toInt())
