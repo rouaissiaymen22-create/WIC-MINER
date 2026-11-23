@@ -15,6 +15,7 @@ import java.net.Socket
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Minimal Stratum V1 transport and handshake.
@@ -31,6 +32,7 @@ class ZpoolStratumClient(private val listener: Listener) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val ids = AtomicInteger(1)
+    private val pendingShares = ConcurrentHashMap.newKeySet<Int>()
     @Volatile private var socket: Socket? = null
     @Volatile private var writer: BufferedWriter? = null
     private var readerJob: Job? = null
@@ -48,6 +50,7 @@ class ZpoolStratumClient(private val listener: Listener) {
             (SSLSocketFactory.getDefault().createSocket() as SSLSocket).apply {
                 connect(InetSocketAddress(host, port), 12_000)
                 soTimeout = 45_000
+                sslParameters = sslParameters.apply { endpointIdentificationAlgorithm = "HTTPS" }
                 startHandshake()
             }
         } else {
@@ -125,7 +128,17 @@ class ZpoolStratumClient(private val listener: Listener) {
 
     private fun handleNotification(line: String) {
         val message = try { JSONObject(line) } catch (_: Exception) { return }
-        when (message.optString("method")) {
+        val method = message.optString("method")
+        if (method.isBlank()) {
+            val responseId = message.optInt("id", -1)
+            if (responseId >= 0 && pendingShares.remove(responseId)) {
+                val accepted = message.opt("result") == true
+                val detail = if (accepted) "Share accepted" else "Share rejected: ${message.opt("error") ?: "unknown reason"}"
+                listener.onShareResult(accepted, detail)
+            }
+            return
+        }
+        when (method) {
             "mining.set_difficulty" -> {
                 val params = message.optJSONArray("params") ?: return
                 val difficulty = params.optDouble(0, Double.NaN)
@@ -155,10 +168,12 @@ class ZpoolStratumClient(private val listener: Listener) {
             .put("id", id)
             .put("method", "mining.submit")
             .put("params", JSONArray().put(wallet).put(jobId).put(extranonce2Hex).put(nTime).put(nonceHex))
+        pendingShares.add(id)
         synchronized(output) { send(output, message) }
     }
 
     fun close() {
+        pendingShares.clear()
         readerJob?.cancel()
         readerJob = null
         try { writer?.close() } catch (_: Exception) { }
