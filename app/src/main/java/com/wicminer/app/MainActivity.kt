@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -119,6 +120,7 @@ fun WicMinerApp() {
     var data by remember { mutableStateOf(PublicMiningData()) }
     var loading by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     suspend fun refresh() {
         loading = true
@@ -171,7 +173,7 @@ fun WicMinerApp() {
                             MetricCard("Block height", data.blockHeight, "Latest confirmed block", Modifier.weight(1f))
                         } }
                         item { MetricCard("Fastest fee", data.fastestFee, "Recommended network fee", Modifier.fillMaxWidth()) }
-                        item { RefreshRow(loading, data.updated, loadError) { refresh() } }
+                        item { RefreshRow(loading, data.updated, loadError) { scope.launch { refresh() } } }
                         item { Notice("These are public Bitcoin network indicators, not your personal mining hashrate, balance, or earnings.") }
                     }
                     1 -> {
