@@ -24,7 +24,9 @@ class ZpoolStratumClient(private val listener: Listener) {
     interface Listener {
         fun onStatus(message: String)
         fun onDifficulty(value: Double)
-        fun onJob(jobId: String, cleanJobs: Boolean)
+        fun onSession(extranonce1: String, extranonce2Size: Int)
+        fun onJob(job: StratumJob)
+        fun onShareResult(accepted: Boolean, detail: String)
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -78,6 +80,7 @@ class ZpoolStratumClient(private val listener: Listener) {
             if (extranonce1.isBlank() || extranonce2Size !in 1..16) {
                 error("Invalid extranonce parameters")
             }
+            listener.onSession(extranonce1, extranonce2Size)
 
             listener.onStatus("Subscribed · authorizing payout address…")
             val authorizeId = ids.getAndIncrement()
@@ -130,9 +133,11 @@ class ZpoolStratumClient(private val listener: Listener) {
             }
             "mining.notify" -> {
                 val params = message.optJSONArray("params") ?: return
-                val jobId = params.optString(0)
-                val cleanJobs = params.optBoolean(8, false)
-                if (jobId.isNotBlank()) listener.onJob(jobId, cleanJobs)
+                try {
+                    listener.onJob(BitcoinStratumWork.parseJob(params))
+                } catch (e: Exception) {
+                    listener.onStatus("Invalid mining job: ${e.message ?: "parse error"}")
+                }
             }
         }
     }
@@ -141,6 +146,16 @@ class ZpoolStratumClient(private val listener: Listener) {
         output.write(message.toString())
         output.write("\n")
         output.flush()
+    }
+
+    fun submitShare(wallet: String, jobId: String, extranonce2Hex: String, nTime: String, nonceHex: String) {
+        val output = writer ?: error("Not connected to pool")
+        val id = ids.getAndIncrement()
+        val message = JSONObject()
+            .put("id", id)
+            .put("method", "mining.submit")
+            .put("params", JSONArray().put(wallet).put(jobId).put(extranonce2Hex).put(nTime).put(nonceHex))
+        synchronized(output) { send(output, message) }
     }
 
     fun close() {
