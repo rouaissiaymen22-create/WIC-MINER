@@ -207,7 +207,7 @@ fun WicMinerApp() {
                     3 -> {
                         item { SectionTitle("DEVICE PROTECTION") }
                         item { SafetyRow("Local mining", "Manual foreground SHA-256d sessions · up to 10 minutes", Icons.Default.Memory) }
-                        item { SafetyRow("Thermal protection", "Stops at battery temperature ≥43°C (when reported by Android)", Icons.Default.Thermostat) }
+                        item { SafetyRow("Thermal protection", "Stops at battery temperature ≥30°C (when reported by Android)", Icons.Default.Thermostat) }
                         item { SafetyRow("Battery protection", "Stops at battery level ≤15%", Icons.Default.BatteryFull) }
                         item { SafetyRow("Background activity", "Disabled in this version", Icons.Default.Bedtime) }
                         item { SafetyRow("Emergency stop", "Stop mining button is available during every session", Icons.Default.StopCircle) }
@@ -215,7 +215,7 @@ fun WicMinerApp() {
                     else -> {
                         item { SectionTitle("APP SETTINGS · SECURITY") }
                         item { Notice("Pool: Zpool SHA-256 over TLS. The configured c=BTC option selects BTC payout; it does not guarantee direct Bitcoin-block mining because Zpool may route SHA-256 work across compatible markets.") }
-                        item { SafetyRow("Application", "WIC MINER · v0.3.3", Icons.Default.Info) }
+                        item { SafetyRow("Application", "WIC MINER · v0.3.4", Icons.Default.Info) }
                         item { SafetyRow("Mining mode", "Manual foreground attempts only · no background service", Icons.Default.Memory) }
                         item { SafetyRow("Network", "TLS certificate and hostname verification enabled", Icons.Default.Lock) }
                         item { SafetyRow("Data source", "mempool.space public API", Icons.Default.Public) }
@@ -318,7 +318,7 @@ fun ZpoolSettings() {
     var mining by remember { mutableStateOf(false) }
     var miningJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var thermalMonitorJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    var sessionDurationMillis by remember { mutableLongStateOf(60_000L) }
+    var sessionDurationMillis by remember { mutableLongStateOf(600_000L) }
     var stopReason by remember { mutableStateOf("") }
     var hashesDone by remember { mutableLongStateOf(0L) }
     var shareCount by remember { mutableIntStateOf(0) }
@@ -456,19 +456,7 @@ fun ZpoolSettings() {
                 Text(if (connecting) "Connecting…" else if (authorized) "Disconnect" else "Test secure pool connection")
             }
             Text("SESSION DURATION", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(60_000L to "1 min", 300_000L to "5 min", 600_000L to "10 min").forEach { (duration, label) ->
-                    OutlinedButton(
-                        onClick = { sessionDurationMillis = duration },
-                        enabled = !mining,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (sessionDurationMillis == duration) Ink else Gold,
-                            containerColor = if (sessionDurationMillis == duration) Gold else Color.Transparent
-                        )
-                    ) { Text(label, fontSize = 12.sp) }
-                }
-            }
+            Text("10 minutes · fixed session", color = White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Button(
                 onClick = {
                     if (mining) {
@@ -528,8 +516,8 @@ fun ZpoolSettings() {
                                     val level = battery?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
                                     val scale = battery?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
                                     val batteryPercent = if (level >= 0 && scale > 0) level * 100 / scale else -1
-                                    if (tempTenths >= 430) {
-                                        stopReason = "Safety stop · battery temperature reached 43°C"
+                                    if (tempTenths >= 300) {
+                                        stopReason = "Safety stop · battery temperature reached 30°C"
                                         miningJob?.cancel()
                                         break
                                     }
@@ -550,7 +538,7 @@ fun ZpoolSettings() {
             ) {
                 Text(if (mining) "Stop mining session" else "Start ${sessionDurationMillis / 60_000L}-minute mining session")
             }
-            Text("Foreground-only SHA-256d session · one CPU worker · choose 1, 5 or 10 minutes. Automatic safety stop at battery temperature ≥43°C or battery ≤15%. Stop manually at any time. Shares are submitted only if they meet the current pool difficulty. No background mining service is enabled.", color = Muted, fontSize = 12.sp)
+            Text("Foreground-only SHA-256d session · one CPU worker · fixed 10-minute session. Automatic safety stop at battery temperature ≥43°C or battery ≤15%. Stop manually at any time. Shares are submitted only if they meet the current pool difficulty. No background mining service is enabled.", color = Muted, fontSize = 12.sp)
         }
     }
 }
