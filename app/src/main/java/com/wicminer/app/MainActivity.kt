@@ -308,6 +308,7 @@ fun ZpoolSettings() {
     var stratumStatus by remember { mutableStateOf("Not connected") }
     var difficulty by remember { mutableStateOf("—") }
     var lastJob by remember { mutableStateOf("—") }
+    var extranonceInfo by remember { mutableStateOf("—") }
     var connecting by remember { mutableStateOf(false) }
     var authorized by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -320,8 +321,14 @@ fun ZpoolSettings() {
                 if (message.contains("closed") || message.contains("error")) authorized = false
             }
             override fun onDifficulty(value: Double) { difficulty = value.toString() }
-            override fun onJob(jobId: String, cleanJobs: Boolean) {
-                lastJob = jobId + if (cleanJobs) " · clean" else ""
+            override fun onSession(extranonce1: String, extranonce2Size: Int) {
+                extranonceInfo = "$extranonce1 · $extranonce2Size bytes"
+            }
+            override fun onJob(job: StratumJob) {
+                lastJob = job.jobId + if (job.cleanJobs) " · clean" else ""
+            }
+            override fun onShareResult(accepted: Boolean, detail: String) {
+                stratumStatus = detail
             }
         })
     }
@@ -368,6 +375,7 @@ fun ZpoolSettings() {
             Text("Connection: $stratumStatus", color = Muted, fontSize = 12.sp)
             Text("Pool difficulty: $difficulty", color = Muted, fontSize = 12.sp)
             Text("Latest job: $lastJob", color = Muted, fontSize = 12.sp)
+            Text("Extranonce: $extranonceInfo", color = Muted, fontSize = 12.sp)
             Button(
                 onClick = {
                     if (authorized || connecting) {
